@@ -7,40 +7,95 @@ import (
 	"fmt"
 )
 
-
 type Project struct {
-	GithubOwner		string
-	RepoName 		string
-	LocalRepoPath 	string
+	GithubOwner			string
+	RepoName 			string
+	LocalRepoPath 		string
+}
+
+type LocalConfig struct {
+	GoPath				string
+	GithubToken			string
+}
+
+type ProjectFile struct {
+	TemplateFilePath	string
+	RepoFilePath 		string
+	Render				bool
 }
 
 func main() {
-	// check for a gopath
-	goPath := os.Getenv("GOPATH")
-	if goPath == "" {
-		log.Fatal("Please set a $GOPATH")
+	// Check for needed environment variables
+	localConfig, err := envVarCheck()
+	if err != nil {
+		log.Fatal(err)
 	}
-	fmt.Println(goPath)
-
-	// check for a github token
-	githubToken := os.Getenv("GITHUB_TOKEN")
-	if githubToken == ""{
-		log.Fatal("Please set a $GITHUB_TOKEN")
-	}
-
 	
-
 	// Set the project
 	x := Project{GithubOwner: "codingdiaz", RepoName: "testing1234"}
-	x.LocalRepoPath = fmt.Sprintf("%s/src/github.com/%s/%s", goPath, x.GithubOwner, x.RepoName)
-	fmt.Println(x.LocalRepoPath)
-	err := os.Mkdir(x.LocalRepoPath,0755)
+	// Set the repo path
+	setRepoPath(&x, &localConfig)
+	// Create the github repo (local folder for now)
+	err = createGitRepo(&x, &localConfig)
 	if err != nil {log.Fatal(err)}
-	f, err := os.Create(fmt.Sprintf("%s/%s",x.LocalRepoPath,"Dockerfile"))
+	err = createFiles(&x, &localConfig)
 	if err != nil {log.Fatal(err)}
-	tmpl, err := template.ParseFiles("templates/Dockerfile")
-	if err != nil { panic(err) }
-	err = tmpl.Execute(f, x)
-	if err != nil { panic(err) }
-	f.Close()
+}
+
+
+func envVarCheck() (localConfig LocalConfig, err error) {
+	// check for a gopath
+	localConfig.GoPath = os.Getenv("GOPATH")
+	if localConfig.GoPath == "" {
+		return localConfig, fmt.Errorf("No GOPATH environment variable set")
+	}
+
+	// check for a github token
+	localConfig.GithubToken = os.Getenv("GITHUB_TOKEN")
+	if localConfig.GithubToken == "" {
+		return localConfig, fmt.Errorf("No GITHUB_TOKEN environment variable set")
+	}
+
+	return
+}
+
+func setRepoPath(project *Project, localConfig *LocalConfig) () {
+	// set the repo path based on inputs
+	project.LocalRepoPath = fmt.Sprintf("%s/src/github.com/%s/%s", 
+		localConfig.GoPath, 
+		project.GithubOwner, 
+		project.RepoName,
+	)
+}
+
+func createGitRepo(project *Project, localConfig *LocalConfig) (err error) {
+	err = os.Mkdir(project.LocalRepoPath,0755)
+	if err != nil {
+		return err
+	}
+	return 
+}
+
+func createFiles(project *Project, localConfig *LocalConfig) (err error) {
+	fileSlice := []ProjectFile{}
+	fileSlice = append(fileSlice, ProjectFile{
+		"templates/Dockerfile",
+		"Dockerfile", 
+		true,
+	})
+
+	for _, file := range fileSlice {
+		f, err := os.Create(fmt.Sprintf("%s/%s",project.LocalRepoPath,file.RepoFilePath))
+		if err != nil {log.Fatal(err)}
+		tmpl, err := template.ParseFiles(file.TemplateFilePath)
+		if err != nil { 
+			return err
+		}
+		err = tmpl.Execute(f, project)
+		if err != nil { 
+			return err
+		 }
+		f.Close()
+	}
+	return nil
 }
