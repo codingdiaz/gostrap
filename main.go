@@ -84,6 +84,16 @@ func createFiles(project *Project, localConfig *LocalConfig) (err error) {
 		"Dockerfile", 
 		true,
 	})
+	fileSlice = append(fileSlice, ProjectFile{
+		"templates/Makefile",
+		"Makefile", 
+		true,
+	})
+	fileSlice = append(fileSlice, ProjectFile{
+		"templates/main.go",
+		"main.go", 
+		false,
+	})
 
 	for _, file := range fileSlice {
 		if file.Render == true {
