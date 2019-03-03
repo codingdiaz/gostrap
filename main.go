@@ -5,6 +5,7 @@ import (
 	"os"
 	"text/template"
 	"fmt"
+	"io/ioutil"
 )
 
 type Project struct {
@@ -85,17 +86,44 @@ func createFiles(project *Project, localConfig *LocalConfig) (err error) {
 	})
 
 	for _, file := range fileSlice {
-		f, err := os.Create(fmt.Sprintf("%s/%s",project.LocalRepoPath,file.RepoFilePath))
-		if err != nil {log.Fatal(err)}
-		tmpl, err := template.ParseFiles(file.TemplateFilePath)
-		if err != nil { 
-			return err
+		if file.Render == true {
+			err = renderFile(&file, project)
+			if err != nil {
+				return
+			}
+		} else {
+			err = saveFile(&file, project)
+			if err != nil {
+				return
+			}
 		}
-		err = tmpl.Execute(f, project)
-		if err != nil { 
-			return err
-		 }
-		f.Close()
 	}
+	return nil
+}
+
+
+func renderFile (file *ProjectFile, project *Project) (err error) {
+	f, err := os.Create(fmt.Sprintf("%s/%s",project.LocalRepoPath,file.RepoFilePath))
+	if err != nil {
+		return err
+	}
+	tmpl, err := template.ParseFiles(file.TemplateFilePath)
+	if err != nil { 
+		return err
+	}
+	err = tmpl.Execute(f, project)
+	if err != nil { 
+		return err
+	 }
+	f.Close()
+	return nil
+}
+
+func saveFile (file *ProjectFile, project *Project) (err error) {
+	contents, err := ioutil.ReadFile(file.TemplateFilePath)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(fmt.Sprintf("%s/%s",project.LocalRepoPath,file.RepoFilePath),contents,0644)
 	return nil
 }
